@@ -1,6 +1,9 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
-import 'package:weather_forecast/data/models/City.dart';
-import 'package:weather_forecast/data/models/Constants.dart';
+import 'package:intl/intl.dart';
+import 'package:weather_forecast/data/api/API_key.dart';
+import 'package:http/http.dart' as http;
 
 class MainPage extends StatefulWidget {
   const MainPage({super.key});
@@ -10,90 +13,84 @@ class MainPage extends StatefulWidget {
 }
 
 class _MainPageState extends State<MainPage> {
+  String location = 'Ho Chi Minh';
+  String weatherIcon = 'heavycloud.png';
+
+  int temperature = 0;
+  int humidity = 0;
+  int windSpeed = 0;
+  int cloud = 0;
+
+  String currentDate = '';
+
+  List hourlyWeatherForcast = [];
+  List dailyWeatherForcast = [];
+
+  String currentWeatherStatus = '';
+
+  Future<void> fetchWeatherData(String searchText) async {
+    try {
+      String searchWeatherAPI =
+          'https://api.weatherapi.com/v1/forecast.json?key=${ApiKey.API_KEY}&q=$searchText&days=7&aqi=no&alerts=no';
+
+      var searchResult = await http.get(Uri.parse(searchWeatherAPI));
+
+      if (searchResult.statusCode == 200) {
+        final weatherData = Map<String, dynamic>.from(
+          json.decode(searchResult.body) ?? "No data");
+        var locationData = weatherData['location'];
+        var currentWeather = weatherData['current'];
+
+        setState(() {
+          location = getShortName(locationData['name']);
+
+          var parsedDate = DateTime.parse(locationData['localtime'].substring(0, 10));
+          var newDate = DateFormat('MMMMEEEEd').format(parsedDate);
+          currentDate = newDate;
+
+          currentWeatherStatus = currentWeather['condition']['text'];
+          weatherIcon = currentWeatherStatus.replaceAll(' ', '').toLowerCase() + '.png';
+
+          temperature = currentWeather['temp_c'].toInt();
+          humidity = currentWeather['humidity'].toInt();
+          windSpeed = currentWeather['wind_kph'].toInt();
+          cloud = currentWeather['cloud'].toInt();
+
+          dailyWeatherForcast = weatherData['forecast']['forecastday'];
+          hourlyWeatherForcast = dailyWeatherForcast[0]['hour'];
+        });
+      } else {
+        print("Failed to load weather data");
+      }
+    } catch (e) {
+      print("An error occurred: $e");
+    }
+  }
+
+  static String getShortName(String s) {
+    List<String> wordList = s.split(" ");
+    if (wordList.isNotEmpty) {
+      if (wordList.length > 1) {
+        return wordList[0] + " " + wordList[1] + " " + wordList[2];
+      } else {
+        return wordList[0];
+      }
+    } else {
+      return " ";
+    }
+  }
+
+  @override
+  void initState() {
+    fetchWeatherData(location);
+    super.initState();
+  }
+
   @override
   Widget build(BuildContext context) {
-    Size size = MediaQuery.of(context).size;
-    Constants myConstants = Constants();
-    List<City> cities = City.citiesList
-        .where((city) => city.isDefault == false)
-        .toList();
-    List<City> selectedCities = City.selectedCities();
     return Scaffold(
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        title: Text(selectedCities.length.toString() + " thành phố đã chọn"),
-        backgroundColor: myConstants.primaryColor,
-        centerTitle: true,
-      ),
-      body: ListView.builder(
-        physics: const BouncingScrollPhysics(),
-        itemCount: cities.length,
-        itemBuilder: (context, index) {
-          return Container(
-            margin: const EdgeInsets.only(left: 10, top: 20, right: 10),
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            height: size.height * 0.08,
-            width: size.width,
-            decoration: BoxDecoration(
-              borderRadius: const BorderRadius.all(Radius.circular(10)),
-              color: myConstants.secondaryColor.withOpacity(.6),
-              border: cities[index].isSelected == true
-                  ? Border.all(
-                      color: myConstants.primaryColor.withOpacity(.6),
-                      width: 2,
-                    )
-                  : Border.all(color: Colors.white),
-              boxShadow: [
-                BoxShadow(
-                  color: myConstants.primaryColor.withOpacity(.2),
-                  spreadRadius: 5,
-                  blurRadius: 7,
-                  offset: const Offset(0, 3),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      cities[index].isSelected = !cities[index].isSelected;
-                    });
-                  },
-                  child: Container(
-                    width: 30,
-                    height: 30,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: cities[index].isSelected == true ? myConstants.primaryColor : Colors.transparent,
-                      border: Border.all(color: myConstants.primaryColor, width: 2),
-                    ),
-                    child: cities[index].isSelected == true
-                        ? Image.asset("assets/checked.png")
-                        : Image.asset("assets/unchecked.png"),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  cities[index].city,
-                  style: TextStyle(
-                    fontSize: 20,
-                    color: cities[index].isSelected == true
-                        ? Colors.white
-                        : Colors.black54,
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: myConstants.secondaryColor,
-        child: const Icon(Icons.pin_drop, color: Colors.white, size: 30,),
-        onPressed: (){
-          print("${selectedCities.length} thành phố đã chọn");
-        },
+      body: Center(
+        child: Text(location),
       ),
     );
   }

@@ -1,6 +1,5 @@
 
 import 'package:flutter/material.dart';
-import 'package:weather_forecast/data/models/City.dart';
 import 'package:weather_forecast/data/models/Constants.dart';
 import 'package:weather_forecast/screen/MainPage.dart';
 
